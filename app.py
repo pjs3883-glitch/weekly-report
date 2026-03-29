@@ -1,17 +1,14 @@
 # -*- coding: utf-8 -*-
-import http.server
-import socketserver
-import webbrowser
-import threading
-import os
+import streamlit as st
+import streamlit.components.v1 as components
 
 # =====================================================================
-# [환경 설정] 서버 포트
+# [환경 설정] Streamlit 페이지 레이아웃 최적화
 # =====================================================================
-PORT = 8081
+st.set_page_config(layout="wide", page_title="자동화설비그룹 주간업무 시스템", page_icon="🚀")
 
 # =====================================================================
-# [UI & Logic] 모든 지시사항이 융합된 무설치 통합 엔진
+# [UI & Logic] 모든 지시사항이 융합된 통합 HTML/JS 엔진
 # =====================================================================
 HTML_CONTENT = """
 <!DOCTYPE html>
@@ -24,7 +21,7 @@ HTML_CONTENT = """
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-        body { background-color: #050510; color: #e2e8f0; font-family: 'Inter', 'Malgun Gothic', sans-serif; overflow: hidden; }
+        body { background-color: #050510; color: #e2e8f0; font-family: 'Inter', 'Malgun Gothic', sans-serif; overflow-x: hidden; margin: 0; padding: 0; }
         .glass { background: rgba(22, 22, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 1rem; }
         .purple-gradient { background: linear-gradient(135deg, #2a1b52 0%, #16162a 100%); border: 1px solid rgba(139, 92, 246, 0.3); }
         .sidebar-active { background: rgba(79, 70, 229, 0.2); color: #c084fc; font-weight: bold; border-left: 4px solid #8b5cf6; }
@@ -63,13 +60,10 @@ HTML_CONTENT = """
         .btn-blue:hover { background: #3b3554; border-color: #8b5cf6; }
         .btn-rose { background: rgba(225, 29, 72, 0.1); border: 1px solid rgba(225, 29, 72, 0.2); color: #fda4af; }
         
-        .draggable-extra {
-            cursor: grab;
-            user-select: none;
-            position: relative;
-        }
+        .draggable-extra { cursor: grab; user-select: none; position: relative; }
         .draggable-extra:active { cursor: grabbing; }
 
+        /* Delete button on hover */
         .item-container .delete-btn {
             visibility: hidden;
             opacity: 0;
@@ -81,10 +75,10 @@ HTML_CONTENT = """
         }
     </style>
 </head>
-<body class="h-screen flex flex-col">
-    <div id="app" class="flex h-full w-full">
+<body>
+    <div id="app" class="flex w-full min-h-screen">
         <!-- 1. SIDEBAR -->
-        <div class="w-64 h-full border-r border-white/5 flex flex-col p-8 gap-8 shrink-0 shadow-2xl">
+        <div class="w-64 border-r border-white/5 flex flex-col p-8 gap-8 shrink-0 shadow-2xl">
             <h2 class="text-white text-xl font-bold text-center flex items-center justify-center gap-2">
                 <span class="material-icons text-blue-400">diamond</span> Menu
             </h2>
@@ -99,7 +93,7 @@ HTML_CONTENT = """
             <div class="mt-4">
                 <p class="text-[#818cf8] text-[11px] font-black mb-4 uppercase tracking-widest">📄 세부 양식 선택</p>
                 <div class="space-y-3">
-                    <label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="fType" value="basic" checked onchange="updateFType('basic')" class="accent-purple-500"> <span class="text-sm">기본 양식</span></label>
+                    <label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="fType" value="basic" checked onchange="updateFType('basic')" class="accent-purple-500"> <span class="text-sm text-gray-300">기본 양식</span></label>
                     <label class="flex items-center gap-3 cursor-pointer text-gray-500"><input type="radio" name="fType" value="photo" onchange="updateFType('photo')" class="accent-purple-500"> <span class="text-sm">사진 추가</span></label>
                     <label class="flex items-center gap-3 cursor-pointer text-gray-500"><input type="radio" name="fType" value="invest" onchange="updateFType('invest')" class="accent-purple-500"> <span class="text-sm">투자비 추가</span></label>
                 </div>
@@ -107,7 +101,7 @@ HTML_CONTENT = """
         </div>
 
         <!-- 2. MAIN CONTENT -->
-        <div class="flex-1 p-10 overflow-y-auto custom-scrollbar" style="background: radial-gradient(circle at 50% 0%, #1e1b4b, #050510 75%);">
+        <div class="flex-1 p-10" style="background: radial-gradient(circle at 50% 0%, #1e1b4b, #050510 75%);">
             <div class="max-w-7xl mx-auto space-y-6">
                 <h1 class="text-3xl font-black text-[#d8b4fe] text-center mb-8">🚀 자동화설비그룹 주간업무 작성 양식</h1>
 
@@ -117,7 +111,6 @@ HTML_CONTENT = """
                 <div class="grid grid-cols-12 gap-8 items-start">
                     <!-- LEFT PANEL -->
                     <div class="col-span-7 space-y-6">
-                        <!-- 항목 추가 섹션 -->
                         <div class="glass p-6 text-center">
                             <h3 class="text-[#d8b4fe] font-bold mb-4 flex items-center justify-center gap-2"><span class="material-icons text-sm">add_circle</span> 항목 추가</h3>
                             <div class="flex gap-2">
@@ -128,16 +121,15 @@ HTML_CONTENT = """
                                     <option value="※ (보완)">※ (추가 보완)</option>
                                 </select>
                                 <input type="text" id="item-input" placeholder="내용 입력 후 엔터↵" class="flex-1 p-2 text-sm" onkeypress="if(event.key==='Enter') addItem()">
-                                <button onclick="deleteLastItem()" class="btn-rose px-5 rounded-lg text-xs font-bold hover:bg-rose-500/20 transition-all">삭제</button>
+                                <button onclick="deleteLastItem()" class="btn-rose px-5 rounded-lg text-xs font-bold hover:bg-rose-500/20">삭제</button>
                             </div>
                         </div>
 
                         <h3 class="text-[#38bdf8] font-bold text-center">📅 진행 일정 구성</h3>
                         <div class="grid grid-cols-2 gap-4">
-                            <!-- 표 자유 편집 -->
                             <div class="glass p-5 flex flex-col items-center">
                                 <p class="text-white font-bold text-sm mb-1">📋 표 자유 편집 (타겟팅 지정)</p>
-                                <div class="w-full space-y-3">
+                                <div class="w-full space-y-3 mt-4">
                                     <div class="space-y-1.5">
                                         <p class="text-gray-400 text-[10px] text-center font-bold">행 (세로) 조절</p>
                                         <select id="sel-row" class="w-full text-xs p-1.5"></select>
@@ -161,15 +153,13 @@ HTML_CONTENT = """
                                     </div>
                                 </div>
                             </div>
-                            <!-- 일정 항목 연동 -->
                             <div class="glass p-5 flex flex-col items-center">
                                 <p class="text-white font-bold text-sm mb-1">🔗 기본 일정 항목 연동</p>
-                                <div id="stage-grid" class="grid grid-cols-3 gap-y-2 gap-x-1 w-full text-[10px]"></div>
+                                <div id="stage-grid" class="grid grid-cols-3 gap-y-2 gap-x-1 w-full text-[10px] mt-4"></div>
                                 <div id="stage-config" class="w-full space-y-2 mt-3 pt-3 border-t border-white/5 overflow-y-auto max-h-36 custom-scrollbar"></div>
                             </div>
                         </div>
 
-                        <!-- Data Editor -->
                         <div class="glass p-5">
                             <p class="text-[#818cf8] text-[11px] mb-3 font-bold text-center sm:text-left">* 아래 표(Data Editor)에서 직접 타이핑하여 내용을 수정할 수도 있습니다.</p>
                             <div class="overflow-x-auto custom-scrollbar rounded-xl bg-[#13111c]/30 p-1">
@@ -200,7 +190,6 @@ HTML_CONTENT = """
                     </div>
                 </div>
 
-                <!-- Footer Actions -->
                 <div class="flex justify-center gap-4 py-12">
                     <button onclick="saveBlock()" class="px-14 py-4 bg-[#5b21b6] hover:bg-[#4c1d95] text-white font-black rounded-2xl transition-all shadow-2xl flex items-center gap-2">
                         <span class="material-icons">save</span> 블록 임시 저장
@@ -408,19 +397,7 @@ HTML_CONTENT = """
 </html>
 """
 
-class FinalHandler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(HTML_CONTENT.encode("utf-8"))
-    def log_message(self, format, *args): return
-
-if __name__ == "__main__":
-    print("\\n" + "★"*60)
-    print("  [SUCCESS] 삼성전자 자동화설비그룹 주간업무 시스템 가동")
-    print(f"  [URL] http://localhost:{PORT}")
-    print("★"*60 + "\\n")
-    threading.Timer(1.2, lambda: webbrowser.open(f"http://localhost:{PORT}")).start()
-    with socketserver.TCPServer(("", PORT), FinalHandler) as httpd:
-        httpd.serve_forever()
+# =====================================================================
+# [실행] Streamlit Native 호출 (포트 충돌 방지)
+# =====================================================================
+components.html(HTML_CONTENT, height=1200, scrolling=True)
